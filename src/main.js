@@ -18,6 +18,42 @@ let SEGMENTS = [0, DURATION]; // set from timeline.json shot cues
 
 let CUE = null;
 
+/* ------------------------------------------------------------------ copy (?lang=en | fr) */
+const TEXT = {
+  en: {
+    header: 'TEAM COFFEE — DAILY', memo: 'MEMO Nº 830', proposal: 'PROPOSAL',
+    current: 'CURRENT COFFEE TIME', forNow: '— FOR NOW',
+    plus15: '+15 MIN', isLabel: '08:15 IS', too: 'too', early: 'early.',
+    sleepIn: [['for those who ', 'serif'], ['sleep in.', 'serifI']],
+    reserved: 'RESERVED · 8:30',
+    sips: [['The team sips at ', 'serif'], ['8:15.', 'serifI']],
+    gone: [['By 8:30, it’s ', 'serif'], ['all gone.', 'serifI']],
+    now: 'NOW',
+    lateBirds: 'LATE BIRDS', becomeSad: 'become sad', littleCats: 'little cats.',
+    punch: ['JUST', 'WAIT', 'MIN.'],
+    coffeeAt: 'Coffee at',
+    footL: 'EVERYONE SLEEPS. EVERYONE SIPS.', footR: 'STARTING MONDAY',
+  },
+  fr: {
+    header: 'CAFÉ D’ÉQUIPE — QUOTIDIEN', memo: 'NOTE Nº 830', proposal: 'PROPOSITION',
+    current: 'HEURE DU CAFÉ ACTUELLE', forNow: '— POUR L’INSTANT',
+    plus15: '+15 MIN', isLabel: '08:15, C’EST', too: 'trop', early: 'tôt.',
+    sleepIn: [['pour ceux qui font la ', 'serif'], ['grasse mat’.', 'serifI']],
+    reserved: 'ATTENDONS 8:30',
+    sips: [['L’équipe prend le café à ', 'serif'], ['8 h 15.', 'serifI']],
+    gone: [['À 8 h 30, ', 'serif'], ['plus une goutte.', 'serifI']],
+    now: 'MAINTENANT',
+    lateBirds: 'LES LÈVE-TARD DEVIENNENT', becomeSad: 'de tristes', littleCats: 'chatons.',
+    punch: ['ON', 'ATTEND', 'MIN.'],
+    coffeeAt: 'Café à',
+    footL: 'TOUT LE MONDE DORT. TOUT LE MONDE A SON CAFÉ.', footR: 'DÈS LUNDI',
+  },
+};
+const LANG = (new URLSearchParams(location.search).get('lang') || 'en').toLowerCase() in TEXT
+  ? (new URLSearchParams(location.search).get('lang') || 'en').toLowerCase() : 'en';
+const T = TEXT[LANG];
+const runsOf = segs => segs.map(([str, fam]) => [str, F[fam]]); // copy runs -> font runs
+
 /* ------------------------------------------------------------------ math */
 const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -88,10 +124,11 @@ function runs(ctx, segs, x, y, size, color, ls = 0, align = 'left') {
   return total;
 }
 // Line revealed through a mask: p=0 hidden below its baseline box, p=1 in place. exit pushes it up and out.
-function maskedRuns(ctx, segs, x, y, size, color, p, { ls = 0, align = 'left', exit = 0, padX = 120 } = {}) {
+function maskedRuns(ctx, segs, x, y, size, color, p, { ls = 0, align = 'left', exit = 0, padX = 120, maxW = Infinity } = {}) {
   if (p <= 0.0005 || exit >= 0.9995) return;
   let total = 0;
   for (const [s, fam] of segs) total += measure(ctx, s, fam, size, ls);
+  if (total > maxW) { size *= maxW / total; total = maxW; } // shrink long translations to fit their column
   const left = align === 'center' ? x - total / 2 : align === 'right' ? x - total : x;
   const top = y - size * 1.0, h = size * 1.32;
   ctx.save();
@@ -395,7 +432,7 @@ function computeLayouts(ctx) {
   for (const q of g) q.x += off;
   L.end.glyphs = g;
   L.p = { s1: 270, s2: 600, base1: 430, base2: 940, x: 128 };
-  L.p.wJUST = measure(ctx, 'JUST', F.black, L.p.s1, -0.03 * L.p.s1);
+  L.p.wJUST = measure(ctx, T.punch[0], F.black, L.p.s1, -0.03 * L.p.s1);
   L.p.w1 = measure(ctx, '1', F.black, L.p.s2);
   L.p.w5 = measure(ctx, '5', F.black, L.p.s2);
 }
@@ -474,8 +511,8 @@ function shot1(ctx, t) {
   // support label
   const lp = sp(t, Q.hookLabel, WT.ui);
   const lx = sp(t, Q.drop - 0.05, WT.ui);
-  maskedRuns(ctx, [['CURRENT COFFEE TIME', F.mono]], 158, base + 92, 26, C.espresso, lp, { ls: 3.5, exit: lx, padX: 6 });
-  maskedRuns(ctx, [['— FOR NOW', F.mono]], 158 + measure(ctx, 'CURRENT COFFEE TIME ', F.mono, 26, 3.5), base + 92, 26, C.signal,
+  maskedRuns(ctx, [[T.current, F.mono]], 158, base + 92, 26, C.espresso, lp, { ls: 3.5, exit: lx, padX: 6 });
+  maskedRuns(ctx, [[T.forNow, F.mono]], 158 + measure(ctx, T.current + ' ', F.mono, 26, 3.5), base + 92, 26, C.signal,
     sp(t, Q.slash + 0.08, WT.ui), { ls: 3.5, exit: lx, padX: 6 });
 
   // iris: the colon's lower dot swallows the frame
@@ -567,14 +604,14 @@ function shot2(ctx, t) {
   // callout on the arc
   const cp = sp(t, Q.wedge + 0.22, WT.ui);
   const [cx, cy] = polar(clockAngle(23.5), CLK.R + 92);
-  maskedRuns(ctx, [['+15 MIN', F.mono]], cx - 6, cy + 30, 30, C.signal, cp, { ls: 3, padX: 6 });
+  maskedRuns(ctx, [[T.plus15, F.mono]], cx - 6, cy + 30, 30, C.signal, cp, { ls: 3, padX: 6 });
 
   // type column
   const X = 1060;
-  maskedRuns(ctx, [['08:15 IS', F.mono]], X + 8, 300, 26, C.paper, sp(t, Q.tooEarly - 0.1, WT.ui), { ls: 3.5, padX: 6 });
-  maskedRuns(ctx, [['too', F.serifI]], X, 530, 260, C.foam, sp(t, Q.tooEarly, WT.hero), { padX: 60 });
-  maskedRuns(ctx, [['early.', F.serifI]], X, 760, 260, C.foam, sp(t, Q.tooEarly + 0.12, WT.hero), { padX: 60 });
-  maskedRuns(ctx, [['for those who ', F.serif], ['sleep in.', F.serifI]], X + 8, 880, 60, C.crema, sp(t, Q.sleepIn, WT.ui), { padX: 20 });
+  maskedRuns(ctx, [[T.isLabel, F.mono]], X + 8, 300, 26, C.paper, sp(t, Q.tooEarly - 0.1, WT.ui), { ls: 3.5, padX: 6 });
+  maskedRuns(ctx, [[T.too, F.serifI]], X, 530, 260, C.foam, sp(t, Q.tooEarly, WT.hero), { padX: 60 });
+  maskedRuns(ctx, [[T.early, F.serifI]], X, 760, 260, C.foam, sp(t, Q.tooEarly + 0.12, WT.hero), { padX: 60 });
+  maskedRuns(ctx, runsOf(T.sleepIn), X + 8, 880, 60, C.crema, sp(t, Q.sleepIn, WT.ui), { padX: 20, maxW: W - MARGIN - X - 8 });
   ctx.restore();
 }
 
@@ -655,16 +692,18 @@ function shotTable(ctx, t) {
   ctx.fillStyle = C.espresso;
   ctx.fillRect(MARGIN - 400, TABLE_Y - 2.5, (W - 2 * MARGIN + 800) * tw, 5);
   // place card
-  maskedRuns(ctx, [['RESERVED · 8:30', F.mono]], 1610, TABLE_Y + 46, 20, C.signal, sp(t, Q.cupsIn + 5 * Q.cupStep + 0.1, WT.ui), { ls: 3, align: 'center', padX: 6 });
+  maskedRuns(ctx, [[T.reserved, F.mono]], 1610, TABLE_Y + 46, 20, C.signal, sp(t, Q.cupsIn + 5 * Q.cupStep + 0.1, WT.ui), { ls: 3, align: 'center', padX: 6 });
   ctx.restore();
 
   // headlines (screen space)
   const X = 128;
   const outA = sp(t, Q.headlineSwap, WT.ui);
-  maskedRuns(ctx, [['The team sips at ', F.serif], ['8:15.', F.serifI]], X, 300, 128, C.espresso,
+  const lineW = segs => runsOf(segs).reduce((w, [str, fam]) => w + measure(ctx, str, fam, 128), 0);
+  const hs = Math.min(128, (1180 / Math.max(lineW(T.sips), lineW(T.gone))) * 128);
+  maskedRuns(ctx, runsOf(T.sips), X, 300, hs, C.espresso,
     sp(t, Q.headlineIn, WT.hero), { exit: outA, padX: 30 });
   const outB = sp(t, Q.pushIn - 0.1, WT.ui);
-  maskedRuns(ctx, [['By 8:30, it’s ', F.serif], ['all gone.', F.serifI]], X, 300, 128, C.espresso,
+  maskedRuns(ctx, runsOf(T.gone), X, 300, hs, C.espresso,
     sp(t, Q.headlineSwap + 0.08, WT.hero), { exit: outB, padX: 30 });
 
   // big live clock: 08:15 -> 08:30
@@ -674,15 +713,15 @@ function shotTable(ctx, t) {
     const tickT = Q.clockRun[0] + ((m - 15) / 15) * (Q.clockRun[1] - Q.clockRun[0]);
     const kickY = m > 15 ? -10 * decay(t, tickT, 18) : 0;
     const pin = sp(t, Q.headlineIn + 0.1, WT.ui), pout = sp(t, Q.pushIn - 0.1, WT.ui);
-    maskedRuns(ctx, [['NOW', F.mono]], W - 128, 190, 24, C.espresso, pin, { ls: 4, align: 'right', exit: pout, padX: 6 });
+    maskedRuns(ctx, [[T.now, F.mono]], W - 128, 190, 24, C.espresso, pin, { ls: 4, align: 'right', exit: pout, padX: 6 });
     maskedRuns(ctx, [[`08:${String(m).padStart(2, '0')}`, F.mono]], W - 128, 300 + kickY, 120, late ? C.signal : C.espresso,
       pin, { ls: -2, align: 'right', exit: pout, padX: 10 });
   }
 
   // shot 4 type
-  maskedRuns(ctx, [['LATE BIRDS', F.mono]], X + 6, 420, 28, C.espresso, sp(t, Q.lateBirds, WT.ui), { ls: 4, padX: 6 });
-  maskedRuns(ctx, [['become sad', F.serif]], X, 590, 140, C.espresso, sp(t, Q.becomeSad, WT.hero), { padX: 30 });
-  maskedRuns(ctx, [['little cats.', F.serifI]], X - 4, 800, 196, C.espresso, sp(t, Q.littleCats, WT.hero), { padX: 30 });
+  maskedRuns(ctx, [[T.lateBirds, F.mono]], X + 6, 420, 28, C.espresso, sp(t, Q.lateBirds, WT.ui), { ls: 4, padX: 6 });
+  maskedRuns(ctx, [[T.becomeSad, F.serif]], X, 590, 140, C.espresso, sp(t, Q.becomeSad, WT.hero), { padX: 30, maxW: 860 });
+  maskedRuns(ctx, [[T.littleCats, F.serifI]], X - 4, 800, 196, C.espresso, sp(t, Q.littleCats, WT.hero), { padX: 30, maxW: 770 });
 }
 
 /* ------------------------------------------------------------------ SHOTS 5+6: punch + lockup */
@@ -724,14 +763,14 @@ function shotEnd(ctx, t) {
     const [dx, dy, s] = wordIn(0, [0, -1], 760);
     if (s > 0) {
       setFont(ctx, F.black, pp.s1, -0.03 * pp.s1);
-      ctx.fillText('JUST', pp.x + dx + nx, pp.base1 + dy + ny - throwUp * 1300);
+      ctx.fillText(T.punch[0], pp.x + dx + nx, pp.base1 + dy + ny - throwUp * 1300);
     }
   }
   {
     const [dx, dy, s] = wordIn(1, [1, 0], 1500);
     if (s > 0) {
       setFont(ctx, F.black, pp.s1, -0.03 * pp.s1);
-      ctx.fillText('WAIT', pp.x + pp.wJUST + 70 + dx + nx, pp.base1 + dy + ny - throwUp2 * 1300);
+      ctx.fillText(T.punch[1], pp.x + pp.wJUST + 70 + dx + nx, pp.base1 + dy + ny - throwUp2 * 1300);
     }
   }
   // MIN.
@@ -740,7 +779,7 @@ function shotEnd(ctx, t) {
     if (s > 0) {
       setFont(ctx, F.black, pp.s1, -0.03 * pp.s1);
       const x15 = pp.x + pp.w1 + pp.w5 - 0.035 * pp.s2;
-      ctx.fillText('MIN.', x15 + 60 + dx + nx, pp.base2 + dy + ny + throwD * 900);
+      ctx.fillText(T.punch[2], x15 + 60 + dx + nx, pp.base2 + dy + ny + throwD * 900);
     }
   }
 
@@ -808,15 +847,15 @@ function shotEnd(ctx, t) {
     ctx.restore();
   }
 
-  maskedRuns(ctx, [['Coffee at', F.serifI]], W / 2 - 70, 300, 150, ink, sp(t, Q.coffeeAt, WT.hero), { align: 'center', padX: 40 });
+  maskedRuns(ctx, [[T.coffeeAt, F.serifI]], W / 2 - 70, 300, 150, ink, sp(t, Q.coffeeAt, WT.hero), { align: 'center', padX: 40 });
   ctx.restore();
 
   // footer (screen space)
   const fp = sp(t, Q.footer, WT.ui);
   const rule = E.outExpo(inv(Q.footer - 0.1, Q.footer + 0.5, t));
   if (rule > 0) { ctx.fillStyle = ink; ctx.fillRect(MARGIN, 958, (W - 2 * MARGIN) * rule, 2); }
-  maskedRuns(ctx, [['EVERYONE SLEEPS. EVERYONE SIPS.', F.mono]], MARGIN, 1012, 24, ink, fp, { ls: 3.5, padX: 6 });
-  maskedRuns(ctx, [['STARTING MONDAY', F.mono]], W - MARGIN, 1012, 24, C.signal, sp(t, Q.footer + 0.1, WT.ui), { ls: 3.5, padX: 6, align: 'right' });
+  maskedRuns(ctx, [[T.footL, F.mono]], MARGIN, 1012, 24, ink, fp, { ls: 3.5, padX: 6 });
+  maskedRuns(ctx, [[T.footR, F.mono]], W - MARGIN, 1012, 24, C.signal, sp(t, Q.footer + 0.1, WT.ui), { ls: 3.5, padX: 6, align: 'right' });
 }
 
 /* ------------------------------------------------------------------ frame assembly */
@@ -836,9 +875,9 @@ function drawScene(ctx, t) {
   // running header
   const onDark = t >= CUE.shot2 && t < CUE.dive + 0.32;
   const col = onDark ? C.paper : C.espresso;
-  let right = 'MEMO Nº 830';
-  if (seg === 3 && t < CUE.roll + 0.2) right = 'PROPOSAL';
-  header(ctx, t, 'TEAM COFFEE — DAILY', right, col, 0.85);
+  let right = T.memo;
+  if (seg === 3 && t < CUE.roll + 0.2) right = T.proposal;
+  header(ctx, t, T.header, right, col, 0.85);
 }
 
 let canvas, ctx, buf, bctx, acc, actx;

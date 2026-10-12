@@ -1,5 +1,5 @@
 // Frame-by-frame renderer: serves the repo, drives Chromium with window.seek(t), writes PNG frames.
-// usage: node scripts/render.mjs [--out out/frames] [--from 0] [--to <duration>] [--fps 60] [--times 0.5,1,2] [--workers 4]
+// usage: node scripts/render.mjs [--out out/frames] [--from 0] [--to <duration>] [--fps 60] [--times 0.5,1,2] [--workers 4] [--lang en|fr]
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -44,7 +44,7 @@ let done = 0;
 async function worker(idx) {
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
   page.on('pageerror', e => console.error('pageerror', e));
-  await page.goto(`http://localhost:${port}/src/index.html?render=1`);
+  await page.goto(`http://localhost:${port}/src/index.html?render=1&lang=${args.lang || 'en'}`);
   await page.evaluate(() => window.ready);
   for (let i = idx; i < times.length; i += WORKERS) {
     const t = times[i];

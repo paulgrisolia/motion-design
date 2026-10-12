@@ -10,6 +10,7 @@ so the late birds who sleep in don't turn into sad little cats.
 | Final video (1920×1080, 60 fps, H.264 + AAC) | `out/final.mp4` |
 | Poster frame (28.5s) | `out/poster.png` |
 | Contact sheet (every 0.5s) | `out/contact.png` |
+| **Version française** : vidéo, poster, planche contact | `out/fr/final.mp4`, `out/fr/poster.png`, `out/fr/contact.png` |
 | Style guide | `docs/style_guide.md` |
 | Shot list / storyboard | `docs/shotlist.md` |
 
@@ -48,7 +49,7 @@ so the late birds who sleep in don't turn into sad little cats.
 
 ```bash
 npm install            # playwright (or use a global install; the script falls back to it)
-npm run build          # ≈4 min on 4 cores -> out/final.mp4, out/poster.png, out/contact.png
+npm run build          # ≈4 min on 4 cores (npm run build -- fr for French) -> out/final.mp4, out/poster.png, out/contact.png
 npm run preview        # open http://localhost:8080/src/index.html and scrub with the slider
                        # add ?t=17 to jump to a timestamp
 ```
@@ -74,6 +75,17 @@ Feedback on v1 was that it was too fast. v2 keeps the same six shots and stretch
 - The punch words land every other beat.
 - The score was re-arranged to the new shot lengths: the same progression, stabs repeating per bar, and a soft outro.
 - To keep the longer holds alive, I added a beat-stepping red second hand on the clock, a slow push, cat breathing and two blinks.
+
+### Version française
+
+Chaque texte vit dans la table `TEXT` en haut de `src/main.js` (`en` / `fr`). La langue se choisit avec `?lang=fr`
+dans l'aperçu, ou avec `npm run build -- fr` (sortie dans `out/fr/`). Les lignes plus longues en français
+sont réduites automatiquement pour tenir dans leur colonne (option `maxW`). L'animation, le rythme et la bande-son
+sont identiques à la version anglaise.
+
+Textes : *8:15* → *trop tôt.* / *pour ceux qui font la grasse mat'.* → *L'équipe prend le café à 8 h 15.* →
+*À 8 h 30, plus une goutte.* → *Les lève-tard deviennent de tristes chatons.* (carton : *ATTENDONS 8:30*) →
+*ON ATTEND 15 MIN.* → *Café à 8:30* / *Tout le monde dort. Tout le monde a son café. — Dès lundi*.
 
 ## Notes
 
