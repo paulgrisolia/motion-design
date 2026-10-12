@@ -1,0 +1,12 @@
+{
+  "name": "coffee-at-830",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bash scripts/build.sh",
+    "preview": "npx http-server . -p 8080 -c-1"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
+  }
+}

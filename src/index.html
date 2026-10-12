@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Coffee at 8:30</title>
+<style>
+  html, body { margin: 0; background: #111; }
+  body { display: grid; place-items: center; min-height: 100vh; }
+  canvas { width: min(100vw, 177.78vh); height: auto; display: block; }
+  body.render canvas { width: 1920px; height: 1080px; }
+  #scrub { position: fixed; left: 16px; right: 16px; bottom: 12px; }
+  body.render #scrub { display: none; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<input id="scrub" type="range" min="0" max="15" step="0.0166667" value="0">
+<script src="main.js"></script>
+</body>
+</html>
