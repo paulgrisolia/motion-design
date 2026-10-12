@@ -1,5 +1,5 @@
 // Frame-by-frame renderer: serves the repo, drives Chromium with window.seek(t), writes PNG frames.
-// usage: node scripts/render.mjs [--out out/frames] [--from 0] [--to 15] [--fps 60] [--times 0.5,1,2] [--workers 4]
+// usage: node scripts/render.mjs [--out out/frames] [--from 0] [--to <duration>] [--fps 60] [--times 0.5,1,2] [--workers 4]
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -18,7 +18,8 @@ const args = Object.fromEntries(process.argv.slice(2).reduce((a, v, i, arr) => {
 }, []));
 const OUT = path.resolve(ROOT, args.out || 'out/frames');
 const FPS = +(args.fps || 60);
-const FROM = +(args.from || 0), TO = +(args.to || 15);
+const TIMELINE = JSON.parse(fs.readFileSync(path.join(ROOT, 'src/timeline.json'), 'utf8'));
+const FROM = +(args.from || 0), TO = +(args.to || TIMELINE.duration);
 const WORKERS = +(args.workers || 4);
 
 const times = args.times

@@ -195,47 +195,58 @@ def ratchet(t0, d=0.38, n=11):
 # ---------------------------------------------------------------- arrangement
 BEAT = 60 / TL['bpm']
 
-# harmony (time, notes, length)
+# harmony (time, notes, length, bass root) — placed on the shot cues
+FINAL = Q['lockup']
+SAD = Q['lateBirds'] - 0.5          # music drops to pad-only for the sad cat
 prog = [
-    (0.0, [53, 57, 60, 64, 67], 2.0, 41),   # Fmaj9
-    (2.0, [52, 55, 59, 62, 66], 2.5, 40),   # Em9
-    (4.5, [57, 60, 64, 67, 71], 1.5, 45),   # Am9
-    (6.0, [50, 53, 57, 60, 64], 2.0, 38),   # Dm9
-    (8.0, [53, 56, 60, 62], 2.0, 41),       # Fm6  (the sad borrowed iv)
-    (10.0, [55, 60, 62, 65], 1.0, 43),      # G7sus
-    (11.0, [55, 59, 62, 65], 1.0, 43),      # G7
-    (12.5, [48, 55, 59, 62, 64], 2.5, 36),  # Cmaj9
+    (0.0, [53, 57, 60, 64, 67], Q['shot2'], 41),                               # Fmaj9
+    (Q['shot2'], [52, 55, 59, 62, 66], Q['shot3'] - Q['shot2'], 40),          # Em9
+    (Q['shot3'], [57, 60, 64, 67, 71], 3.0, 45),                               # Am9
+    (Q['shot3'] + 3.0, [50, 53, 57, 60, 64], SAD - Q['shot3'] - 3.0, 38),     # Dm9
+    (SAD, [53, 56, 60, 62], Q['shot5'] - SAD, 41),                             # Fm6 (the sad borrowed iv)
+    (Q['shot5'], [55, 60, 62, 65], 2.0, 43),                                   # G7sus
+    (Q['shot5'] + 2.0, [55, 59, 62, 65], FINAL - Q['shot5'] - 2.0, 43),       # G7
+    (FINAL, [48, 55, 59, 62, 64], DUR - FINAL, 36),                            # Cmaj9
 ]
 for t0, notes, d, root in prog:
-    if t0 >= 12.5:
+    if t0 >= FINAL:
         chord(notes, t0, 3.0, 0.15)
-        pad(notes, t0, 1.6, 0.05, 0.02, 1.0)
+        pad(notes, t0, d - 1.2, 0.045, 0.02, 1.0)
         bass(root, t0, 2.5, 0.38)
+        # relaxed outro: soft stabs once per bar
+        for bar in np.arange(t0 + 2.0, DUR - 1.0, 2.0):
+            chord([m + 12 for m in notes[1:]], bar, 1.6, 0.045)
+            bass(root, bar, 1.8, 0.16)
         continue
-    pad(notes, t0, d, 0.035 if t0 != 8.0 else 0.055, 0.25 if t0 else 0.02)
-    if 7.5 <= t0 < 10:
+    pad(notes, t0, d, 0.055 if t0 == SAD else 0.035, 0.25 if t0 else 0.02)
+    if t0 == SAD:
         bass(root, t0, d, 0.22)
-        chord([m + 12 for m in notes[1:]], t0 + 0.02, 2.0, 0.06)
+        for bar in np.arange(t0, t0 + d - 0.01, 2.5):
+            chord([m + 12 for m in notes[1:]], bar + 0.02, 2.4, 0.06)
         continue
-    bass(root, t0, d)
-    # EP stabs: 1, &2, 4 (shot 5: every beat)
-    hits = [0, 0.75, 1.5] if t0 < 10 else [0, 0.5]
-    for h in hits:
-        if h < d:
-            chord(notes, t0 + h, 0.9, 0.11 if h == 0 else 0.07)
+    for bar in np.arange(t0, t0 + d - 0.01, 2.0):
+        bass(root, bar, 2.0)
+        hits = [0, 0.75, 1.5] if t0 < Q['shot5'] else [0, 0.5]
+        for h in hits:
+            if bar + h < t0 + d:
+                chord(notes, bar + h, 0.9, 0.11 if h == 0 else 0.07)
 
-# drums
-for b in np.arange(0, 7.5, BEAT):
+# drums: shot 1 only hits on the hook and the slash; groove from shot 2 until the sad cat
+for b in np.arange(0, SAD, BEAT):
     beat_in_bar = int(round(b / BEAT)) % 4
-    if b < 2.0 and b not in (0.0, 1.0):
+    if b < Q['shot2']:
+        if b in (Q['hookIn'], Q['slash']):
+            place(kick(), b, 0.9)
         continue
-    if beat_in_bar in (0, 2) or b in (0.0, 1.0):
+    if beat_in_bar in (0, 2):
         place(kick(), b, 0.9)
-    if b >= 4.5 and beat_in_bar in (1, 3):
+    if b >= Q['shot3'] and beat_in_bar in (1, 3):
         place(clap(int(b * 10)), b, 0.5, pan=0.1, send=0.25)
-# clock ticks: 8ths 2.0 -> 7.5 (tick / tock)
-for i, b in enumerate(np.arange(2.0, 7.5, BEAT / 2)):
+# clock ticks: 8ths (tick / tock) through the clock and cups shots, quieter again in the outro
+for i, b in enumerate(np.arange(Q['shot2'], SAD, BEAT / 2)):
     place(tick(i % 2 == 0, 30 + i), b, 0.7 if i % 2 == 0 else 0.4, pan=-0.25 if i % 2 else 0.25)
+for i, b in enumerate(np.arange(Q['footer'], DUR - 0.75, BEAT)):
+    place(tick(i % 2 == 0, 130 + i), b, 0.3 if i % 2 == 0 else 0.18, pan=-0.25 if i % 2 else 0.25)
 for b in Q['punch']:
     place(kick(0.5, 150, 40, 1.2), b, 1.0)
     place(clap(int(b * 7)), b, 0.65, send=0.3)
@@ -256,8 +267,8 @@ ratchet(Q['wedge'])
 place(blip(1500, 1500, 0.08, 0.15), Q['wedge'] + 0.22, pan=0.3)
 place(whoosh(0.5, True, 200, 7000, 13), Q['dive'], 0.7, send=0.3)
 for i in range(5):
-    place(clink(1900 * 2 ** (i * 2 / 12), 50 + i), Q['cupsIn'] + i * 0.075 + 0.1, 0.55, pan=-0.6 + 0.3 * i, send=0.25)
-    place(sip(60 + i), Q['drainStart'] + i * 0.22 + 0.05, 0.8, pan=-0.6 + 0.3 * i)
+    place(clink(1900 * 2 ** (i * 2 / 12), 50 + i), Q['cupsIn'] + i * Q['cupStep'] + 0.1, 0.55, pan=-0.6 + 0.3 * i, send=0.25)
+    place(sip(60 + i), Q['drainStart'] + i * Q['drainStep'] + 0.05, 0.8, pan=-0.6 + 0.3 * i)
 place(whoosh(0.25, False, 800, 4000, 14), Q['headlineSwap'] - 0.05, 0.25)
 place(blip(500, 1100, 0.09, 0.3), Q['earsPop'], pan=0.6)
 place(blip(700, 1300, 0.07, 0.2), Q['catPeek'], pan=0.6)
@@ -271,6 +282,8 @@ place(bell(84), Q['lockup'], 1.0, send=0.5)
 place(bell(91), Q['lockup'] + 0.12, 0.5, send=0.5)
 place(blip(900, 1500, 0.08, 0.2), Q['happyCat'], pan=0.5, send=0.3)
 place(blip(1100, 1800, 0.07, 0.15), Q['happyCat'] + 0.1, pan=0.5, send=0.3)
+for b in Q['blink']:
+    place(blip(1600, 2000, 0.04, 0.06), b, pan=0.5, send=0.4)
 
 # ---------------------------------------------------------------- reverb + master
 ir_d = 1.4

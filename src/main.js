@@ -5,7 +5,8 @@
  * No timers, no Math.random, no CSS animation. Springs are evaluated analytically.
  */
 
-const W = 1920, H = 1080, FPS = 60, DURATION = 15;
+const W = 1920, H = 1080, FPS = 60;
+let DURATION = 30; // read from timeline.json
 const C = {
   paper: '#F1EADF', espresso: '#1B1410', signal: '#FF4B1F', crema: '#C89B6D', foam: '#FBF7F0',
 };
@@ -13,7 +14,7 @@ const F = { black: 'IDBlack', bold: 'IDBold', serif: 'ISerif', serifI: 'ISerifIt
 const MARGIN = 64;
 
 // Scene boundaries. Motion-blur sub-samples never cross these, so hard cuts stay hard.
-const SEGMENTS = [0, 2.0, 4.5, 10.0, DURATION];
+let SEGMENTS = [0, DURATION]; // set from timeline.json shot cues
 
 let CUE = null;
 
@@ -405,7 +406,7 @@ function shot1(ctx, t) {
   ctx.fillStyle = C.paper; ctx.fillRect(0, 0, W, H);
   const { size, base, glyphs } = L.s1;
 
-  const cs = 1 + 0.035 * E.inOutSine(inv(0, 2, t));
+  const cs = 1 + 0.035 * E.inOutSine(inv(0, Q.shot2, t));
   const d = t - Q.slash;
   const shk = d > 0 ? 9 * Math.exp(-d * 13) * Math.sin(d * 70) : 0;
   ctx.save();
@@ -481,7 +482,7 @@ function shot1(ctx, t) {
   if (t >= Q.iris) {
     const g = glyphs[1];
     const dotX = g.x + g.w / 2, dotY = base - COLON.low * size;
-    const q = inv(Q.iris, 2.0, t);
+    const q = inv(Q.iris, Q.shot2, t);
     const e = E.inCubic(q);
     const cx = lerp(dotX, 620, E.inOutCubic(q)), cy = lerp(dotY, 560, E.inOutCubic(q));
     drawColonDot(ctx, cx, cy, COLON.r * size + e * 2300, C.espresso);
@@ -499,17 +500,17 @@ function shot2(ctx, t) {
   ctx.fillStyle = C.espresso; ctx.fillRect(0, 0, W, H);
 
   // camera: slow drift, then dive into an empty patch of the clock face
-  const q = inv(Q.dive, 4.5, t);
+  const q = inv(Q.dive, Q.shot3, t);
   const zoom = Math.pow(24, E.inCubic(q));
   const [fx, fy] = polar(clockAngle(58), CLK.R * 0.6);
-  const drift = -14 * (t - 2);
+  const drift = -7 * (t - Q.shot2);
   ctx.save();
   ctx.translate(drift, 0);
   ctx.translate(fx, fy); ctx.scale(zoom, zoom); ctx.translate(-fx, -fy);
 
   const R = CLK.R * sp(t, Q.clockIn - 0.04, WT.card);
   ctx.fillStyle = C.paper;
-  ctx.beginPath(); ctx.arc(CLK.x, CLK.y, Math.max(R, COLON.r * 640 * (1 - inv(2, 2.1, t))), 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(CLK.x, CLK.y, Math.max(R, COLON.r * 640 * (1 - inv(Q.shot2, Q.shot2 + 0.1, t))), 0, Math.PI * 2); ctx.fill();
 
   // 15 -> 30 wedge
   const wp = sp(t, Q.wedge, { k: 200, c: 24 });
@@ -548,11 +549,24 @@ function shot2(ctx, t) {
     ctx.strokeStyle = C.signal; ctx.lineWidth = 12;
     ctx.beginPath(); ctx.moveTo(CLK.x, CLK.y); ctx.lineTo(gx, gy); ctx.stroke();
   }
+  // second hand: steps 6° on every beat, so the long hold never freezes
+  {
+    const dt = t - (Q.clockIn + 0.3);
+    if (dt > 0) {
+      const n = Math.floor(dt / 0.5);
+      const a = clockAngle(n + spring(dt - n * 0.5, WT.ui));
+      const [sx, sy] = polar(a, CLK.R * 0.86), [bx, by] = polar(a + Math.PI, CLK.R * 0.16);
+      ctx.strokeStyle = C.signal; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      ctx.globalAlpha = clamp(dt * 4);
+      ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(sx, sy); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  }
   drawColonDot(ctx, CLK.x, CLK.y, 18, C.signal);
 
   // callout on the arc
   const cp = sp(t, Q.wedge + 0.22, WT.ui);
-  const [cx, cy] = polar(clockAngle(22.5), CLK.R + 92);
+  const [cx, cy] = polar(clockAngle(23.5), CLK.R + 92);
   maskedRuns(ctx, [['+15 MIN', F.mono]], cx - 6, cy + 30, 30, C.signal, cp, { ls: 3, padX: 6 });
 
   // type column
@@ -595,7 +609,7 @@ function shotTable(ctx, t) {
 
   // camera
   const p = sp(t, Q.pushIn, WT.cam);
-  const S = Math.exp(lerp(0, Math.log(3.2), p)) * (1 + 0.035 * E.inOutSine(inv(7.6, 10, t)));
+  const S = Math.exp(lerp(0, Math.log(3.2), p)) * (1 + 0.035 * E.inOutSine(inv(Q.pushIn + 0.55, Q.shot5, t)));
   const fx = lerp(960, 1610, p), fy = lerp(540, 712, p);
   const ax = lerp(960, 1340, p), ay = lerp(540, 600, p);
   ctx.save();
@@ -612,9 +626,9 @@ function shotTable(ctx, t) {
 
   // cups
   for (let i = 0; i < 5; i++) {
-    const s = sp(t, Q.cupsIn + i * 0.075, WT.card);
+    const s = sp(t, Q.cupsIn + i * Q.cupStep, WT.card);
     if (s <= 0) continue;
-    const dq = inv(Q.drainStart + i * 0.22, Q.drainStart + i * 0.22 + 0.55, t);
+    const dq = inv(Q.drainStart + i * Q.drainStep, Q.drainStart + i * Q.drainStep + Q.drainDur, t);
     const level = 1 - E.inOutCubic(dq);
     const tilt = -0.12 * Math.sin(Math.PI * dq);
     const exit = E.inCubic(inv(Q.pushIn - 0.05 + (4 - i) * 0.03, Q.pushIn + 0.35 + (4 - i) * 0.03, t));
@@ -627,7 +641,7 @@ function shotTable(ctx, t) {
     ctx.restore();
   }
   // the empty seat
-  const seatIn = sp(t, Q.cupsIn + 0.45, WT.ui);
+  const seatIn = sp(t, Q.cupsIn + 5 * Q.cupStep, WT.ui);
   const seatOut = E.inCubic(inv(Q.earsPop - 0.15, Q.earsPop + 0.05, t));
   if (seatIn > 0 && seatOut < 1) {
     ctx.save();
@@ -641,25 +655,25 @@ function shotTable(ctx, t) {
   ctx.fillStyle = C.espresso;
   ctx.fillRect(MARGIN - 400, TABLE_Y - 2.5, (W - 2 * MARGIN + 800) * tw, 5);
   // place card
-  maskedRuns(ctx, [['RESERVED · 8:30', F.mono]], 1610, TABLE_Y + 46, 20, C.signal, sp(t, Q.cupsIn + 0.5, WT.ui), { ls: 3, align: 'center', padX: 6 });
+  maskedRuns(ctx, [['RESERVED · 8:30', F.mono]], 1610, TABLE_Y + 46, 20, C.signal, sp(t, Q.cupsIn + 5 * Q.cupStep + 0.1, WT.ui), { ls: 3, align: 'center', padX: 6 });
   ctx.restore();
 
   // headlines (screen space)
   const X = 128;
   const outA = sp(t, Q.headlineSwap, WT.ui);
   maskedRuns(ctx, [['The team sips at ', F.serif], ['8:15.', F.serifI]], X, 300, 128, C.espresso,
-    sp(t, 4.7, WT.hero), { exit: outA, padX: 30 });
+    sp(t, Q.headlineIn, WT.hero), { exit: outA, padX: 30 });
   const outB = sp(t, Q.pushIn - 0.1, WT.ui);
   maskedRuns(ctx, [['By 8:30, it’s ', F.serif], ['all gone.', F.serifI]], X, 300, 128, C.espresso,
     sp(t, Q.headlineSwap + 0.08, WT.hero), { exit: outB, padX: 30 });
 
   // big live clock: 08:15 -> 08:30
   {
-    const m = 15 + Math.floor(15 * inv(4.75, 6.3, t));
+    const m = 15 + Math.floor(15 * inv(Q.clockRun[0], Q.clockRun[1], t));
     const late = m >= 30;
-    const tickT = 4.75 + ((m - 15) / 15) * (6.3 - 4.75);
+    const tickT = Q.clockRun[0] + ((m - 15) / 15) * (Q.clockRun[1] - Q.clockRun[0]);
     const kickY = m > 15 ? -10 * decay(t, tickT, 18) : 0;
-    const pin = sp(t, 4.8, WT.ui), pout = sp(t, Q.pushIn - 0.1, WT.ui);
+    const pin = sp(t, Q.headlineIn + 0.1, WT.ui), pout = sp(t, Q.pushIn - 0.1, WT.ui);
     maskedRuns(ctx, [['NOW', F.mono]], W - 128, 190, 24, C.espresso, pin, { ls: 4, align: 'right', exit: pout, padX: 6 });
     maskedRuns(ctx, [[`08:${String(m).padStart(2, '0')}`, F.mono]], W - 128, 300 + kickY, 120, late ? C.signal : C.espresso,
       pin, { ls: -2, align: 'right', exit: pout, padX: 10 });
@@ -777,7 +791,7 @@ function shotEnd(ctx, t) {
     const g0 = g[3];
     const right = g0.x + g0.w;
     const top = L.end.base - 0.727 * L.end.size;
-    const bl = Math.max(0, 1 - Math.abs(t - Q.blink - 0.06) / 0.06);
+    const bl = Math.max(0, ...Q.blink.map(b => 1 - Math.abs(t - b - 0.06) / 0.06));
     ctx.save();
     ctx.beginPath(); ctx.rect(right - 70, 0, 900, H); ctx.clip();
     drawCat(ctx, lerp(right - 120, right + 38, cs), top + 150 + 5 * Math.sin((t - Q.happyCat) * 3.1), 230, {
@@ -820,7 +834,7 @@ function drawScene(ctx, t) {
   ctx.restore();
 
   // running header
-  const onDark = t >= 2.0 && t < 4.5 && !(t > 4.32);
+  const onDark = t >= CUE.shot2 && t < CUE.dive + 0.32;
   const col = onDark ? C.paper : C.espresso;
   let right = 'MEMO Nº 830';
   if (seg === 3 && t < CUE.roll + 0.2) right = 'PROPOSAL';
@@ -869,7 +883,11 @@ async function loadFonts() {
 }
 
 window.ready = (async () => {
-  CUE = (await (await fetch('timeline.json')).json()).cues;
+  const tl = await (await fetch('timeline.json')).json();
+  CUE = tl.cues;
+  DURATION = tl.duration;
+  SEGMENTS = [0, CUE.shot2, CUE.shot3, CUE.shot5, DURATION];
+  document.getElementById('scrub').max = DURATION;
   await loadFonts();
   canvas = document.getElementById('c');
   ctx = canvas.getContext('2d');
